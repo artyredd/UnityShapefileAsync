@@ -1,5 +1,5 @@
 
-# Mini Map Mod
+# UnityShapefileAsync
 Converts [Shapefiles](https://en.wikipedia.org/wiki/Shapefile), commonly used for representing geographical or demograpic bodies in statistical analysis programs, to Unity3d(MonoDevelop C#7.3) Meshes and Vector3's.
 
 ### Features
