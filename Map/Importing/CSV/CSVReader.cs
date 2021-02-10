@@ -27,11 +27,11 @@ namespace PSS.Mapping
         /// <summary>
         /// How many lines have been read so far by the reader;
         /// </summary>
-        public int LinesRead => Producer!=null ? Producer.ItemsProduced : 0;
+        public int LinesRead => Producer != null ? Producer.ItemsProduced : 0;
 
         public int TotalLines => Producer != null ? Producer.TotalItems : 0;
 
-        public int LinesConverted => Consumer!=null ? Consumer.ItemsConsumed : 0;
+        public int LinesConverted => Consumer != null ? Consumer.ItemsConsumed : 0;
 
         public bool Reading { get; private set; } = false;
 
@@ -65,14 +65,14 @@ namespace PSS.Mapping
 
             ColumnsToKeep = columnsToKeep;
 
-            _Threads.Add(StartReaderWorker());
-            
+            StartReaderWorker();
+
             try
             {
-                Task.WaitAll(Threads.ToArray());
+                Task.WaitAll(Workers.ToArray());
                 UpdateStatus(TaskStatus.RanToCompletion);
             }
-            catch (AggregateException e) 
+            catch (AggregateException e)
             {
                 bool unexpected = e.ContainsUnexpectedExceptions(typeof(OperationCanceledException));
                 if (unexpected)
@@ -81,7 +81,8 @@ namespace PSS.Mapping
                     UpdateStatus(TaskStatus.Faulted);
                     throw;
                 }
-                else {
+                else
+                {
                     UpdateStatus(TaskStatus.Canceled);
                 }
             }
@@ -89,23 +90,28 @@ namespace PSS.Mapping
             Reading = false;
         }
 
-        private Task StartReaderWorker()
+        private void StartReaderWorker()
         {
-            return Task.Run(()=> {
+            Run(() =>
+            {
                 // setup a new producer
                 Producer = new ReadLineProducer<ConcurrentQueue<string>>(Path);
+
                 UpdateStatus(TaskStatus.Running);
+
                 // route the producers output to this object
                 Producer.Output = LineQueue;
+
                 // tell the producer that we dont need the first line, its a garbo header
                 Producer.SkipFirstLine = true;
 
-                _Threads.Add(StartConsumerWorker());
+                StartConsumerWorker();
 
                 // start producing lines
                 Producer.StartWorker();
+
                 // tell the consumer that its okay to stop its threads when its done consuming
-                Consumer.WaitForItems = false;
+                Consumer.KeepAlive = false;
             });
         }
 
@@ -120,25 +126,29 @@ namespace PSS.Mapping
             return result;
         }
 
-        private Task StartConsumerWorker()
+        private void StartConsumerWorker()
         {
-            return Task.Run(() => {
+            Run(() =>
+            {
                 UpdateStatus(TaskStatus.Running);
+
                 Consumer = new Consumer<string[], string, ConcurrentQueue<string[]>, ConcurrentQueue<string>>();
+
                 // tell the consumer what to consume
                 Consumer.Input = LineQueue;
+
                 // route the output of the consumer to this object
                 Consumer.Output = RowQueue;
+
                 // tell the consumer what to do with the items
                 Consumer.Operation = ConsumerOperation;
-                // tell the consumer to wait for the producer to start producing before it starts its tasks
-                Consumer.MonitoredITasks.Add(Producer);
+
                 // tell the consumer to keep trying to consume until the producer says to stop
-                Consumer.WaitForItems = true;
-                // wait for the producer task to start
-                MultiThreading.Helpers.WaitForInstantiation(Producer,TokenSource.Token,5000);
+                Consumer.KeepAlive = true;
+
                 // begin consuming
-                Consumer.BeginConsuming(1);
+                Consumer.DelayConsumeEvent(Producer, TaskStatus.Running, 1);
+                //Consumer.BeginConsuming(1);
             });
         }
 
@@ -149,7 +159,8 @@ namespace PSS.Mapping
             Producer.Cancel();
         }
 
-        ~CSVReader(){
+        ~CSVReader()
+        {
             Cancel();
             Reading = false;
         }

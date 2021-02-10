@@ -114,11 +114,11 @@ namespace PSS.Mapping
             // reset map data if there is any
             Records = new ConcurrentQueue<IMapData>();
 
-            _Threads.Add(Task.Run(() => StartWorkerThread(token)));
+            Run(() => StartWorkerThread(token));
 
             try
             {
-                Task.WaitAll(Threads.ToArray());
+                Task.WaitAll(Workers.ToArray());
                 UpdateStatus(TaskStatus.RanToCompletion);
             }
             catch (AggregateException e)
