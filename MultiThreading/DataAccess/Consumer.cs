@@ -9,7 +9,7 @@ using System.Diagnostics;
 
 namespace PSS.MultiThreading.DataAccess
 {
-    
+
     public class Consumer<TResult, T, TOutput, TInput> : BaseMultiThreaded, IMultiThreaded, ITask where TOutput : IProducerConsumerCollection<TResult>, new() where TInput : IProducerConsumerCollection<T>, new()
     {
         /// <summary>
@@ -17,9 +17,9 @@ namespace PSS.MultiThreading.DataAccess
         /// </summary>
         /// <typeparam name="TResult"></typeparam>
         /// <typeparam name="T"></typeparam>
-        public Consumer() 
-        { 
-        
+        public Consumer()
+        {
+
         }
 
         /// <summary>
@@ -52,23 +52,12 @@ namespace PSS.MultiThreading.DataAccess
         /// <summary>
         /// Pauses or Unpauses the consumtion of items from Input, setting to true hangs all working threads until Paused = false is set, StopConsuming() or Cancel() is called.
         /// </summary>
-        public bool Paused { get; set; } = false;
+        public bool Paused { get; private set; } = false;
 
         /// <summary>
-        /// Enables the worker threads to continously wait for items even after running out of items to consume. Set this value to true if you have producers that produce data slowly , or producers that dont start right away. This value MUST be set to false before worker threads can finish their work unless Cancel() is called.
+        /// Whether or not this consumer should be kept alive
         /// </summary>
-        public bool WaitForItems { get; set; } = false;
-
-        /// <summary>
-        /// When this property is set this consumer will wait for the ITask to be either in a Running state or RanToCompletion state to begin consuming items
-        /// </summary>
-        public List<ITask> MonitoredITasks { get; set; } = new List<ITask>();
-
-        /// <summary>
-        /// When this list contains any Tasks this object will spin-wait for all of them to be in a running state before starting consumer tasks
-        /// </summary>
-        public List<Task> MonitoredTasks { get; set; } = new List<Task>();
-
+        public bool KeepAlive { get; set; } = false;
 
         /// <summary>
         /// Force the consumer to stop consuming and end all tasks.
@@ -79,66 +68,86 @@ namespace PSS.MultiThreading.DataAccess
             Cancel();
         }
 
+        public void Pause()
+        {
+            SetPause(true);
+        }
+
+        public void Resume()
+        {
+            SetPause(false);
+        }
+
+        private void SetPause(bool pause)
+        {
+            Paused = pause;
+            if (pause)
+            {
+                if (Status != TaskStatus.WaitingToRun)
+                {
+                    UpdateStatus(TaskStatus.WaitingToRun);
+                }
+            }
+            else
+            {
+                if (Status != TaskStatus.Running)
+                {
+                    UpdateStatus(TaskStatus.Running);
+                }
+            }
+        }
+
         /// <summary>
         /// Start <paramref name="workers"/> worker threads to start consuming items from the input bag and outputing the result to the output bag. By default worker threads end when all items have been consumed
         /// </summary>
         /// <param name="workers">The number of worker threads you want comsuming items, 1 recommeded unless the operation is slow/advanded or the producer/data set is too fast/large.</param>
-        public void BeginConsuming(int workers = 1) {
-            try
+        public void BeginConsuming(int workers = 1)
+        {
+
+            // create the worker threads to start consuming
+            for (int i = 0; i < workers; i++)
             {
-                // should we wait for a task to start producing?
-                if (MonitoredITasks.Count > 0)
+                Run(() => ConsumerWorker(TokenSource.Token));
+            }
+
+            WaitTasks();
+        }
+
+        /// <summary>
+        /// Calls this.BeginConsuming(int numberOfWorkers) after the <see cref="IMultiThreaded"/> <paramref name="objectToWatch"/> reaches <paramref name="status"/>
+        /// </summary>
+        /// <param name="objectToWatch"></param>
+        /// <param name="status"></param>
+        public void DelayConsumeEvent(IMultiThreaded objectToWatch, TaskStatus status, int numberOfWorkers = 1)
+        {
+            InvokOnStatusChange(objectToWatch, status, () => BeginConsuming(numberOfWorkers));
+        }
+
+        /// <summary>
+        /// Calls this.BeginConsuming(int numberOfWorkers) after the <see cref="IMultiThreaded"/> <paramref name="objectToWatch"/> reaches <paramref name="status"/>
+        /// </summary>
+        /// <param name="objectToWatch"></param>
+        /// <param name="status"></param>
+        public void SetKeepAliveEvent(IMultiThreaded objectToWatch, TaskStatus status, bool alive)
+        {
+            InvokOnStatusChange(objectToWatch, status, () => KeepAlive = alive);
+        }
+
+        /// <summary>
+        /// Calls this.BeginConsuming(int numberOfWorkers) after the <see cref="IMultiThreaded"/> <paramref name="objectToWatch"/> reaches <paramref name="status"/>
+        /// </summary>
+        /// <param name="objectToWatch"></param>
+        /// <param name="status"></param>
+        public void InvokOnStatusChange(IMultiThreaded objectToWatch, TaskStatus status, Action action)
+        {
+            objectToWatch.TaskProgress.ProgressChanged +=
+                (object caller, (object caller, TaskStatus status) taskStatus) =>
                 {
-                    foreach (var item in MonitoredITasks)
+                    if (taskStatus.status == status)
                     {
-                        Helpers.WaitForStatus(item, TaskStatus.Running, TokenSource.Token, long.MaxValue);
+                        action?.Invoke();
                     }
-                }
-
-                if(MonitoredTasks.Count > 0)
-                {
-                    // This 'spin waits' until the task we are monitoring is running, completed, canceled, or faulted
-                    foreach (var item in MonitoredTasks)
-                    {
-                        Helpers.WaitForStatus(item, TaskStatus.Running, TokenSource.Token, long.MaxValue);
-                    }
-                }
-
-                // create the worker threads to start consuming
-                for (int i = 0; i < workers; i++)
-                {
-                    _Threads.Add(
-                        Task.Run(() => {
-                            ConsumerWorker(TokenSource.Token);
-                        })
-                    );
-                }
-
-                // wait for the tasks to finish consuming or fault/cancel 
-                Task.WaitAll(Threads.ToArray());
-
-                // this line only gets hit if all the tasks finish without fault/cancel
-                UpdateStatus(TaskStatus.RanToCompletion);
-            }
-            catch (AggregateException e)
-            {
-                bool unexpectedFault = MultiThreading.Helpers.ContainsUnexpectedExceptions(e, typeof(OperationCanceledException));
-                if (unexpectedFault)
-                {
-                    Factory.LogInnerExceptions(e);
-                    UpdateStatus(TaskStatus.Faulted);
-                    throw;
-                }
-                else
-                {
-                    // Don't throw if we expected a cancellation
-                    UpdateStatus(TaskStatus.Canceled);
-                }
-            }
-            finally
-            {
-                Cancel();
-            }
+                };
         }
 
         /// <summary>
@@ -150,8 +159,9 @@ namespace PSS.MultiThreading.DataAccess
         {
             // if we arent monitoring tasks then just wait for items is fine, if we are in order to stay in the loop we have to 
             // waiting for items and NOT all mintor tasks are finished
+            UpdateStatus(TaskStatus.Running);
 
-            while (Input.Count > 0 || (MonitoredITasks.Count == 0 ? WaitForItems : (WaitForItems && !AllFinished())))
+            while (Input.Count > 0 || KeepAlive)
             {
                 token.ThrowIfCancellationRequested();
 
@@ -160,22 +170,13 @@ namespace PSS.MultiThreading.DataAccess
                 {
                     token.ThrowIfCancellationRequested();
 
-                    if (Status != TaskStatus.WaitingToRun)
-                    {
-                        UpdateStatus(TaskStatus.WaitingToRun);
-                    }
-                }
-
-                if (Status != TaskStatus.Running)
-                {
-                    UpdateStatus(TaskStatus.Running);
                 }
 
                 // consume items
                 T item;
-                if (Input.TryTake(out item)) 
+                if (Input.TryTake(out item))
                 {
-                    ConsumeItem(item,token);
+                    ConsumeItem(item, token);
                 }
             }
         }
@@ -187,28 +188,11 @@ namespace PSS.MultiThreading.DataAccess
         private void ConsumeItem(T ItemToConsume, CancellationToken token)
         {
             TResult result = Operation(ItemToConsume);
-            System.Threading.Interlocked.Increment(ref _ItemsConsumed);
-            while (Output.TryAdd(result) == false) 
+            Interlocked.Increment(ref _ItemsConsumed);
+            while (Output.TryAdd(result) == false)
             {
                 token.ThrowIfCancellationRequested();
             }
-        }
-
-
-        private bool AllFinished() {
-            bool anyNotFinished = false;
-            foreach (var item in MonitoredITasks)
-            {
-                if (item == null)
-                {
-                    throw new NullReferenceException("Failed to get status of ITask, make sure the ITask is instanitated before the consumer begins consuming!");
-                }
-                if (item.Status != TaskStatus.RanToCompletion && item.Status != TaskStatus.Canceled && item.Status != TaskStatus.Faulted)
-                {
-                    anyNotFinished = true;
-                }
-            }
-            return !anyNotFinished;
         }
     }
 }
