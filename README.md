@@ -5,7 +5,6 @@ Converts [Shapefiles](https://en.wikipedia.org/wiki/Shapefile), commonly used fo
 ### Features
 
 - Implements Object Oriented Classes and helpers to simplify integration into your solution.
-- As of release Beta-b2, Speed is approx ~1ms per shape (that's inclusive of instantiation of the GameObject and rendering, source: 35k shapes in 34 seconds)
 
 ### Showcase
 
@@ -104,7 +103,6 @@ Converts [Shapefiles](https://en.wikipedia.org/wiki/Shapefile), commonly used fo
 	
 ### Upcoming Changes
 Minor Refactor, Dependency Cleanup, Deprecated Code Removal
-Simplify API for classes
 
 ### If you like my Work please consider donating to the Autism Research Institute 
 https://www.autism.org/donate-autism-research-institute/
@@ -113,6 +111,4 @@ https://www.autism.org/donate-autism-research-institute/
 If you have an issue, discover a bug, or have a recommendation please drop me a line directly through GitHub!
 
 ### Change Log
-Release b2
-	- Major Refactor of Multithreading, speed increase of ~10% 35k shapefile shapes loaded in 34 seconds, ~ 1ms/shape (including instantiation in the game engine)
 First Beta Release: b1

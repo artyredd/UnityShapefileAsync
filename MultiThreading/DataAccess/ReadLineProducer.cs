@@ -10,7 +10,7 @@ using System.Diagnostics;
 
 namespace PSS.MultiThreading.DataAccess
 {
-
+    
     public class ReadLineProducer<T> : BaseMultiThreaded, IMultiThreaded, ITask where T : IProducerConsumerCollection<string>, new()
     {
         /// <summary>
@@ -49,30 +49,58 @@ namespace PSS.MultiThreading.DataAccess
         /// <summary>
         /// Starts the producer worker on another thread
         /// </summary>
-        public void StartWorker()
+        public void StartWorker() 
         {
             _OperationsCompleted = 0;
 
-            Run(() => ReadLineWorker(TokenSource.Token));
+            _Threads.Add(
+                Task.Run(() =>
+                {
+                    ReadLineWorker(TokenSource.Token);
+                }
+            ));
 
             // This is after the worker thread task becuase get file line count takes ~5s to complete for files 3k+ lines
             _TotalItems = PSS.Mapping.Helpers.MapFileHelpers.GetFileLineCount(Path);
 
-            WaitTasks();
+            try
+            {
+                // wait for the tasks to finish consuming or fault/cancel 
+                Task.WaitAll(Threads.ToArray(), TokenSource.Token);
+
+                // this line only gets hit if all the tasks finish without fault/cancel
+                UpdateStatus(TaskStatus.RanToCompletion);
+            }
+            catch (AggregateException e)
+            {
+                bool unexpectedFault = MultiThreading.Helpers.ContainsUnexpectedExceptions(e, typeof(OperationCanceledException));
+                if (unexpectedFault)
+                {
+                    UpdateStatus(TaskStatus.Faulted);
+                    throw;
+                }
+                else
+                {
+                    // Don't throw if we expected a cancellation
+                    UpdateStatus(TaskStatus.Canceled);
+                }
+            }
+            finally
+            {
+                Cancel();
+            }
         }
 
         /// <summary>
         /// Actual worker, reads line from file and adds it to the Output
         /// </summary>
         /// <param name="token"></param>
-        private void ReadLineWorker(CancellationToken token)
-        {
+        private void ReadLineWorker(CancellationToken token) {
             using (StreamReader reader = File.OpenText(Path))
             {
                 UpdateStatus(TaskStatus.Running);
                 string line;
-                while ((line = reader.ReadLine()) != null)
-                {
+                while ((line = reader.ReadLine()) !=null) {
                     token.ThrowIfCancellationRequested();
                     if (SkipFirstLine)
                     {
@@ -80,26 +108,9 @@ namespace PSS.MultiThreading.DataAccess
                         continue;
                     }
                     ProduceLine(line, token);
-                    Interlocked.Increment(ref _OperationsCompleted);
+                    System.Threading.Interlocked.Increment(ref _OperationsCompleted);
                 }
             }
-        }
-
-        /// <summary>
-        /// Calls this.StartWorker() after the <see cref="IMultiThreaded"/> <paramref name="objectToWatch"/> reaches <paramref name="status"/>
-        /// </summary>
-        /// <param name="objectToWatch"></param>
-        /// <param name="status"></param>
-        public void WaitToProduce(IMultiThreaded objectToWatch, TaskStatus status)
-        {
-            objectToWatch.TaskProgress.ProgressChanged +=
-                (object caller, (object caller, TaskStatus status) taskStatus) =>
-                {
-                    if (taskStatus.status == status)
-                    {
-                        StartWorker();
-                    }
-                };
         }
 
         /// <summary>
@@ -107,10 +118,8 @@ namespace PSS.MultiThreading.DataAccess
         /// </summary>
         /// <param name="line"></param>
         /// <param name="token"></param>
-        private void ProduceLine(string line, CancellationToken token)
-        {
-            while (Output.TryAdd(line) == false)
-            {
+        private void ProduceLine(string line,CancellationToken token) {
+            while (Output.TryAdd(line) == false) {
                 token.ThrowIfCancellationRequested();
             }
         }

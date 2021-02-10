@@ -106,9 +106,6 @@ public class ShapefileImport : MonoBehaviour
 
     void Start()
     {
-
-        Helpers.MapGenerationHelpers.CreatePrefabs();
-
         if (loadFromFile)
         {
             LoadRecords(@outputName);
@@ -119,7 +116,6 @@ public class ShapefileImport : MonoBehaviour
             //ImportRecords();
             //StartCoroutine("ImportMultiple");
             StartCoroutine(nameof(LoadMultiple));
-
         }
     }
     private void OnDisable()
@@ -149,7 +145,7 @@ public class ShapefileImport : MonoBehaviour
         if (reader != null)
         {
             reading = reader.Status;
-            linesLoaded = reader.LinesRead;
+            //linesLoaded = reader.LinesRead;
             linesDeser = reader.LinesConverted;
         }
         if (importer != null)
@@ -186,7 +182,6 @@ public class ShapefileImport : MonoBehaviour
 
     IEnumerator LoadMultiple()
     {
-        Stopwatch watch = Stopwatch.StartNew();
         var states = Enum.GetValues(typeof(StateCode));
         foreach (int item in states)
         {
@@ -200,7 +195,6 @@ public class ShapefileImport : MonoBehaviour
                 yield return null;
             }
         }
-        Debug($"TotalTime:{watch.ElapsedMilliseconds}");
         yield return null;
         //if (usePolyGons) {
         //    usePolyGons = false;
@@ -210,7 +204,6 @@ public class ShapefileImport : MonoBehaviour
 
     IEnumerator ImportMultiple()
     {
-        Stopwatch watch = Stopwatch.StartNew();
         var states = Enum.GetValues(typeof(StateCode));
         foreach (int item in states)
         {
@@ -219,7 +212,7 @@ public class ShapefileImport : MonoBehaviour
 
             shapefileName = name;
 
-            yield return ImportRecords();
+            ImportRecords();
 
             while (importingSpin)
             {
@@ -227,7 +220,6 @@ public class ShapefileImport : MonoBehaviour
             }
             Factory.Log($"Imported {item}");
         }
-        Debug($"TotalTime:{watch.ElapsedMilliseconds}");
     }
 
     private void LoadRecords(string recordName)
@@ -236,27 +228,31 @@ public class ShapefileImport : MonoBehaviour
 
         string path = Application.dataPath + defaultOutputPath + recordName;
 
+        //Debug("Loading Map");
         reader = new MapReader(path);
-        generator = new MapGenerator();
-
-        Task readerTask = Task.Run(() =>
+        generator = new MapGenerator
         {
+            MeshGenerationTolerace = Tolerance,
+            //SimplifyTolerace = (float)Tolerance
+        };
 
-            reader.ReadMapMultiThreaded(2);
-            TotalShapes += reader.LinesRead;
+        Task.Run(() =>
+        {
+            reader.ReadMapMultiThreaded(4);
+            //Debug("Finished Reading Map File");
         });
 
-        Task generatorTask = Task.Run(() =>
+        Task.Run(() =>
         {
-
             generator.GenerateMap(reader, usePolyGons, mat);
             Debug($"Finished Generating {recordName}");
             loadingSpin = false;
         });
+
     }
 
 
-    private async Task ImportRecords()
+    private void ImportRecords()
     {
         importingSpin = true;
         string newPath = this.ExecutablePath() + '/' + defaultAttributeFilePath + shapefileName + ".shp";
@@ -268,11 +264,10 @@ public class ShapefileImport : MonoBehaviour
             OutputDirectory = this.ExecutablePath() + defaultOutputPath,
         };
         importer = new MapImporter(info);
-        Factory.Log("Started Importing");
-        await importer.BeginReadingAsync(new RecordPositions(positions.PrimaryIdIndex, positions.SecondaryIdIndex, positions.NameIndex));
-
-        await Task.Run(() =>
+        Task.Run(() =>
         {
+            Factory.Log("Started Importing");
+            importer.BeginReadingAsync(new RecordPositions(positions.PrimaryIdIndex, positions.SecondaryIdIndex, positions.NameIndex));
             PSS.MultiThreading.Helpers.WaitForStatus(importer, TaskStatus.RanToCompletion, TokenSource.Token, long.MaxValue);
             Factory.Log("Finished Importing");
             exporter = new MapExporter(info);

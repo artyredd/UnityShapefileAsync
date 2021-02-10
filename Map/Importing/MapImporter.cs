@@ -36,9 +36,14 @@ namespace PSS.Mapping
         /// </summary>
         public IShapeFileReader SReader { get; set; }
 
-        public MapImporter(IMapPathInfo mapFileDetails)
-        {
+        public MapImporter(IMapPathInfo mapFileDetails) {
             PathInfo = mapFileDetails;
+            // Make sure all the paths work
+            bool failedValidation = !Helpers.MapPathInfoHelpers.VerifyPaths(mapFileDetails);
+            if (failedValidation)
+            {
+                throw new UnauthorizedAccessException();
+            }
         }
 
         /// <summary>
@@ -59,7 +64,7 @@ namespace PSS.Mapping
         /// <summary>
         /// The percent dont this importer is in importing a shapefile and CSV data
         /// </summary>
-        public int PercentDone => MathHelpers.Percentages.PercentageComplete(RecordsImported, TotalRecords);
+        public int PercentDone => MathHelpers.Percentages.PercentageComplete(RecordsImported,TotalRecords);
 
         /// <summary>
         /// Whether or not the CSVReader is finished reading its data
@@ -75,8 +80,7 @@ namespace PSS.Mapping
         /// <summary>
         /// Cancel all threads and tasks that this importer controls.
         /// </summary>
-        public override void Cancel()
-        {
+        public override void Cancel() {
             TokenSource.Cancel();
             CSVReader.Cancel();
         }
@@ -84,21 +88,22 @@ namespace PSS.Mapping
         /// <summary>
         /// IRecordPositions tells the importer which CSV columns hold important information about the map like the entity name, its ID and its parent ID, Example: Florida(nameIndex), State code(SecondaryID), Country Code(PrimaryID)
         /// </summary>
-        public async Task BeginReadingAsync(IRecordPositions positions)
-        {
-            CSVReader = Factory.CreateCSVReader(PathInfo.CSVDirectory + PathInfo.FileName + ".csv");
+        public void BeginReadingAsync(IRecordPositions positions) {
+            Progress<MapImporterProgressModel> progress = MultiThreading.Helpers.CreateProgress<MapImporterProgressModel>(ImporterProgressEvent);
 
+            CSVReader = Factory.CreateCSVReader(PathInfo.CSVDirectory + PathInfo.FileName + ".csv");
             SReader = Factory.CreateShapeFileReader(PathInfo.ShapeFileDirectory + PathInfo.FileName + ".shp");
 
-            StartShapeFileWorker(TokenSource.Token);
+            _Threads.Add(StartShapeFileWorker(TokenSource.Token));
+            _Threads.Add(StartCSVWorker(positions));
 
-            StartCSVWorker(positions);
+            _Threads.Add(Task.Run(() => {
+                UpdateStatus(TaskStatus.Running);
+                StartQueueConsumer(positions, progress, TokenSource.Token);
+            }));
 
-            StartQueueConsumer(positions, TokenSource.Token);
-
-            try
-            {
-                await Task.WhenAll(Workers.ToArray());
+            try {
+                Task.WaitAll(Threads.ToArray());
                 UpdateStatus(TaskStatus.RanToCompletion);
             }
             catch (AggregateException e)
@@ -119,18 +124,14 @@ namespace PSS.Mapping
             {
                 Cancel();
             }
-
-            //await AwaitTasks();
         }
 
-        private void ImporterProgressEvent(object caller, MapImporterProgressModel status)
-        {
+        private void ImporterProgressEvent(object caller, MapImporterProgressModel status) {
             RecordsImported = status.RecordsCompleted;
             TotalRecords = status.TotalRecords;
         }
 
-        private void StartQueueConsumer(IRecordPositions positions, IProgress<MapImporterProgressModel> progress, CancellationToken token)
-        {
+        private void StartQueueConsumer(IRecordPositions positions, IProgress<MapImporterProgressModel> progress, CancellationToken token) {
             // the progress report for this async task
             MapImporterProgressModel progressReport = new MapImporterProgressModel();
 
@@ -152,7 +153,6 @@ namespace PSS.Mapping
                 {
                     progressReport.RecordsCompleted++;
                     progress.Report(progressReport);
-                    throw new NullReferenceException();
                 }
                 else
                 {
@@ -177,9 +177,7 @@ namespace PSS.Mapping
                 }
             }
         }
-
-        private Tuple<T, U> WaitForMultipleQueues<T, U>(ConcurrentQueue<T> queue, ConcurrentQueue<U> queue2, CancellationToken token, long timeout = 10) where T : class where U : class
-        {
+        private Tuple<T, U> WaitForMultipleQueues<T, U>(ConcurrentQueue<T> queue, ConcurrentQueue<U> queue2, CancellationToken token, long timeout = 10) where T : class where U : class {
             Stopwatch watch = Stopwatch.StartNew();
             T tmp1;
             U tmp2;
@@ -191,17 +189,14 @@ namespace PSS.Mapping
                     token.ThrowIfCancellationRequested();
 
                     // if there is values to yoink try to yoink them
-                    if (queue.TryPeek(out tmp1) & queue2.TryPeek(out tmp2))
-                    {
+                    if (queue.TryPeek(out tmp1) & queue2.TryPeek(out tmp2)) {
 
-                        while (queue.TryDequeue(out tmp1) == false)
-                        {
+                        while (queue.TryDequeue(out tmp1) == false) {
                             // wait to yoink first value
                             token.ThrowIfCancellationRequested();
                         }
 
-                        while (queue2.TryDequeue(out tmp2) == false)
-                        {
+                        while (queue2.TryDequeue(out tmp2) == false) {
                             // wait to yoink second value
                             token.ThrowIfCancellationRequested();
                         }
@@ -219,15 +214,13 @@ namespace PSS.Mapping
             {
                 return new Tuple<T, U>(null, null);
             }
-            catch (Exception)
-            {
+            catch (Exception) {
                 throw;
             }
         }
 
 
-        private bool EnqueueRecord(IMapData data, string[] row, IRecordPositions positions)
-        {
+        private bool EnqueueRecord(IMapData data, string[] row, IRecordPositions positions) {
             if (data != null & row != null)
             {
                 Records.Enqueue(Factory.CreateMapRecord(data, row, positions));
@@ -236,40 +229,19 @@ namespace PSS.Mapping
             return false;
         }
 
-        /// <summary>
-        /// Creates and adds the CSV reader worker task to the internal task list
-        /// </summary>
-        /// <param name="token"></param>
-        private void StartCSVWorker(IRecordPositions positions)
-        {
-            Add(() => CSVReader.ReadCSV(positions.PrimaryIDIndex, positions.SecondaryIDIndex, positions.NameIndex));
-        }
-
-        /// <summary>
-        /// Creates and adds the shapefile worker task to the internal task list
-        /// </summary>
-        /// <param name="token"></param>
-        private void StartShapeFileWorker(CancellationToken token)
-        {
-            Add(() => SReader.BeginReadingAsync(token));
-        }
-
-        /// <summary>
-        /// Creates and adds the queue consumer worker task to the internal task list
-        /// </summary>
-        /// <param name="token"></param>
-        private void StartQueueConsumer(IRecordPositions positions, CancellationToken token)
-        {
-            Progress<MapImporterProgressModel> progress = MultiThreading.Helpers.CreateProgress<MapImporterProgressModel>(ImporterProgressEvent);
-            Add(() =>
-            {
-                UpdateStatus(TaskStatus.Running);
-                StartQueueConsumer(positions, progress, token);
+        private Task StartCSVWorker(IRecordPositions positions) {
+            return Task.Run(()=> {
+                CSVReader.ReadCSV(positions.PrimaryIDIndex,positions.SecondaryIDIndex,positions.NameIndex);
             });
         }
 
-        ~MapImporter()
-        {
+        private Task StartShapeFileWorker(CancellationToken token) {
+            return Task.Run(() => {
+                SReader.BeginReadingAsync(token);
+            });
+        }
+
+        ~MapImporter() {
             Cancel();
         }
     }
