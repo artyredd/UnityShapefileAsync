@@ -1,4 +1,4 @@
-﻿ using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -10,7 +10,8 @@ using static MainThread;
 
 namespace PSS.Mapping
 {
-    public static partial class Helpers {
+    public static partial class Helpers
+    {
         /// <summary>
         /// Helper methods that assist in Map generation
         /// </summary>
@@ -20,10 +21,12 @@ namespace PSS.Mapping
             private static GameObject MapLinePrefab;
             private static GameObject MapShapePrefab;
 
-            public static void CreatePrefabs(CancellationToken token) {
-                MainThreadOperation operation = MainThread.Add(() => {
+            public static void CreatePrefabs()
+            {
+                MainThreadOperation operation = MainThread.Add(() =>
+                {
                     MapLinePrefab = new GameObject();
-                    
+
                     LineRenderer r = MapLinePrefab.AddComponent<LineRenderer>();
                     r.receiveShadows = false;
                     r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -33,22 +36,22 @@ namespace PSS.Mapping
                     MapShapePrefab.AddComponent<MeshRenderer>();
                     MapShapePrefab.gameObject.transform.Translate(new Vector3(0, 0, 3f));
                 });
-                // wait for the creation to finish on the main thread
-                MultiThreading.Helpers.WaitForStatus(operation,TaskStatus.RanToCompletion, token,long.MaxValue);
             }
 
             /// <summary>
             /// Creates a random UnityEngine.Color and returns it, thread safe
             /// </summary>
             /// <returns></returns>
-            public static Color GetRandomColor() {
+            public static Color GetRandomColor()
+            {
                 float x, y, z;
-                lock (random) {
+                lock (random)
+                {
                     x = (float)random.NextDouble();
                     y = (float)random.NextDouble();
                     z = (float)random.NextDouble();
                 }
-                return new Color(x,y,z);
+                return new Color(x, y, z);
             }
 
             /// <summary>
@@ -74,11 +77,12 @@ namespace PSS.Mapping
 
                 var r = MIConvexHull.ConvexHull.Create2D(vertices);
 
-                if (r.ErrorMessage != string.Empty) {
+                if (r.ErrorMessage != string.Empty)
+                {
                     //return null;
                     throw new NullReferenceException(r.ErrorMessage);
                 }
-                    
+
                 //r.Outcome.Debug();
                 var result = r.Result;
                 mesh.Vertices = result.Select(x => new Vector3((float)x.X, (float)x.Y, 0)).ToArray();
@@ -104,11 +108,13 @@ namespace PSS.Mapping
             /// <param name="color"></param>
             /// <param name="tolerance"></param>
             /// <returns></returns>
-            public static MainThreadOperation CreateGameObjectWithLine(int uniqueId, IMapRecord record,float size,Color color, float tolerance = 0.1f) {
+            public static MainThreadOperation CreateGameObjectWithLine(int uniqueId, IMapRecord record, float size, Color color, float tolerance = 0.1f)
+            {
 
-                record = SimplifyRecord(record,tolerance);
+                record = SimplifyRecord(record, tolerance);
 
-                return MainThread.Add(()=> {
+                return MainThread.Add(() =>
+                {
                     GameObject n = GameObject.Instantiate(MapLinePrefab);
                     n.name = uniqueId.ToString();
                     LineRenderer r = n.GetComponent<LineRenderer>();
@@ -130,10 +136,11 @@ namespace PSS.Mapping
             /// <param name="mat"></param>
             /// <param name="color"></param>
             /// <returns></returns>
-            public static MainThreadOperation CreateGameObjectWithMesh(string uniqueID,IMesh mesh, Material mat, Color color) {
+            public static MainThreadOperation CreateGameObjectWithMesh(string uniqueID, IMesh mesh, Material mat, Color color)
+            {
                 if (mesh == null)
                 {
-                    throw new ArgumentNullException(nameof(mesh),"Mesh cannot be null.");
+                    throw new ArgumentNullException(nameof(mesh), "Mesh cannot be null.");
                 }
 
                 MainThreadOperation mainThreadOperation = MainThread.Add(() =>
@@ -168,7 +175,8 @@ namespace PSS.Mapping
             /// <param name="record"></param>
             /// <param name="tolerance"></param>
             /// <returns></returns>
-            public static IMapRecord SimplifyRecord(IMapRecord record, float tolerance = 0.1f) {
+            public static IMapRecord SimplifyRecord(IMapRecord record, float tolerance = 0.1f)
+            {
                 List<Vector3> points = new List<Vector3>();
                 LineUtility.Simplify(record.points.ToList(), tolerance, points);
                 record.points = points;

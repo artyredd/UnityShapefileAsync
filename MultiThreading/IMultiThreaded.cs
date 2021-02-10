@@ -7,14 +7,14 @@ namespace PSS.MultiThreading
 {
     public interface IMultiThreaded : ITask
     {
-        int CancelledThreads { get; }
-        int FaultedThreads { get; }
-        int FinishedThreads { get; }
-        int RunningThreads { get; }
-        IReadOnlyCollection<Task> Threads { get; }
-        int WaitingThreads { get; }
+        int CancelledWorkers { get; }
+        int FaultedWorkers { get; }
+        int CompletedWorkers { get; }
+        int RunningWorkers { get; }
+        IReadOnlyCollection<Task> Workers { get; }
+        int WaitingWorkers { get; }
 
-        IProgress<ITaskProgress> TaskProgress { get; set; }
+        Progress<(object, TaskStatus)> TaskProgress { get; set; }
 
         void Cancel();
     }

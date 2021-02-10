@@ -77,34 +77,9 @@ namespace PSS.Mapping
             // the workers wait for the reader to start running before they begin work.
             UpdateStatus(TaskStatus.WaitingToRun);
 
-            try
-            {
-                Helpers.MapGenerationHelpers.CreatePrefabs(TokenSource.Token);
-                CreateWorkers(GetReasonableMaxThreads());
-                //Task.WaitAll(Threads.ToArray(), TokenSource.Token);
-                UpdateStatus(TaskStatus.RanToCompletion);
-            }
-            catch (AggregateException e)
-            {
-                bool unexpected = e.ContainsUnexpectedExceptions(typeof(OperationCanceledException));
-                if (unexpected)
-                {
-                    Factory.LogInnerExceptions(e);
-                    UpdateStatus(TaskStatus.Faulted);
-                    throw;
-                }
-                else
-                {
-                    UpdateStatus(TaskStatus.Canceled);
-                }
-            }
-            finally
-            {
-                Cancel();
-            }
+            CreateWorkers(GetReasonableMaxThreads());
 
-            // just incase we have hanging threads
-            Cancel();
+            WaitTasks();
 
             GeneratingPieces = false;
         }
@@ -124,17 +99,15 @@ namespace PSS.Mapping
                 Consumer.Operation = GenerateLineOperation;
             }
 
-            Consumer.MonitoredITasks.Add(Reader);
-
-            Consumer.WaitForItems = true;
+            Consumer.KeepAlive = true;
 
             UpdateStatus(TaskStatus.Running);
 
             GeneratingPieces = true;
 
-            Consumer.BeginConsuming(numberOfWorkers);
+            Consumer.SetKeepAliveEvent((IMultiThreaded)Reader, TaskStatus.RanToCompletion, false);
 
-            GeneratingPieces = false;
+            Run(() => Consumer.BeginConsuming(numberOfWorkers));
         }
 
         private int GetReasonableMaxThreads()
