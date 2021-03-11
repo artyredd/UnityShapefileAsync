@@ -13,7 +13,7 @@ namespace PSS.Mapping
     /// <summary>
     /// Handles the Exporting of newly imported Shapefile and CSV information into PSS_MAP format(AKA plaintext JSON becuase im lazy)
     /// </summary>
-    public class MapExporter : BaseMultiThreaded, IMutliThreaded
+    public class MapExporter : BaseMultiThreaded, IMultiThreaded
     {
 
         public MapExporter(IMapPathInfo pathInfo)
@@ -44,7 +44,7 @@ namespace PSS.Mapping
         /// </summary>
         public int RecordsSerialized => _RecordsSerialized;
         private int _RecordsSerialized;
-        
+
 
         /// <summary>
         /// Whether or not the exporter is currently in the process of serializing data
@@ -67,25 +67,27 @@ namespace PSS.Mapping
         /// </summary>
         /// <param name="RecordQueue"></param>
         /// <returns></returns>
-        public void ExportMapRecords(ConcurrentQueue<IMapRecord> RecordQueue) {
+        public void ExportMapRecords(ConcurrentQueue<IMapRecord> RecordQueue)
+        {
             ///           MAIN THREAD 
             ///               ↓
             ///    MapExporter Worker (this)
             ///    ↓                       ↓
             ///    Serialize             Writer
 
-            _Threads.Add(Task.Run(() => {
-                SerializeAndBagRecords(RecordQueue,TokenSource.Token);
+            _Workers.Add(Task.Run(() =>
+            {
+                SerializeAndBagRecords(RecordQueue, TokenSource.Token);
             }));
 
-            _Threads.Add(Task.Run(() =>
+            _Workers.Add(Task.Run(() =>
             {
-                ConsumeAndWriteRecordsFromBag(SerializedRecords,TokenSource.Token);
+                ConsumeAndWriteRecordsFromBag(SerializedRecords, TokenSource.Token);
             }));
 
             try
             {
-                Task.WaitAll(Threads.ToArray());
+                Task.WaitAll(Workers.ToArray());
                 UpdateStatus(TaskStatus.RanToCompletion);
             }
             catch (AggregateException e)
@@ -102,14 +104,16 @@ namespace PSS.Mapping
                     UpdateStatus(TaskStatus.Canceled);
                 }
             }
-            finally {
+            finally
+            {
                 Cancel();
                 WritingRecords = false;
                 SerializingRecords = false;
             }
 
         }
-        private void SerializeAndBagRecords(ConcurrentQueue<IMapRecord> RecordQueue, CancellationToken token) {
+        private void SerializeAndBagRecords(ConcurrentQueue<IMapRecord> RecordQueue, CancellationToken token)
+        {
             SerializingRecords = true;
             while (!RecordQueue.IsEmpty)
             {
@@ -124,7 +128,8 @@ namespace PSS.Mapping
             SerializingRecords = false;
         }
 
-        private void ConsumeAndWriteRecordsFromBag(ConcurrentBag<string> bag, CancellationToken token) {
+        private void ConsumeAndWriteRecordsFromBag(ConcurrentBag<string> bag, CancellationToken token)
+        {
             if (File.Exists(ExportPath))
             {
                 File.Delete(ExportPath);

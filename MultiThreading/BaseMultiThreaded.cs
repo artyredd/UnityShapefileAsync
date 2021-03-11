@@ -18,7 +18,7 @@ namespace PSS.MultiThreading
         /// </summary>
         public IReadOnlyCollection<Task> Workers => _Workers.AsReadOnly();
 
-        private List<Task> _Workers { get; set; } = new List<Task>();
+        protected List<Task> _Workers { get; set; } = new List<Task>();
 
         /// <summary>
         /// The current status of this object, when instantiated it starts as <see cref="TaskStatus.Created"/>

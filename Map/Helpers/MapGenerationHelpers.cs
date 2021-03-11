@@ -88,8 +88,8 @@ namespace PSS.Mapping
                 mesh.Vertices = result.Select(x => new Vector3((float)x.X, (float)x.Y, 0)).ToArray();
                 var xxx = result.ToList();
 
-                int[] meshIndices = new int[xxx.Count * 3];
-                for (int i = 0; i < xxx.Count - 2; i++)
+                int[] meshIndices = new int[xxx.Count() * 3];
+                for (int i = 0; i < xxx.Count() - 2; i++)
                 {
                     meshIndices[3 * i] = 0;
                     meshIndices[(3 * i) + 1] = i + 1;

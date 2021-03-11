@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace PSS.MultiThreading
+namespace PSS
 {
     public interface IMultiThreaded : ITask
     {

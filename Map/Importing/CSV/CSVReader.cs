@@ -17,7 +17,7 @@ namespace PSS.Mapping
     /// <summary>
     /// Reads from a CSV
     /// </summary>
-    public class CSVReader : BaseMultiThreaded, ICSVReader, IMutliThreaded
+    public class CSVReader : BaseMultiThreaded, ICSVReader, IMultiThreaded
     {
         /// <summary>
         /// The path that this CSV reader reads from.

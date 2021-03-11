@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace PSS.Mapping
 {
-    public interface IMapReader : IMutliThreaded
+    public interface IMapReader : IMultiThreaded
     {
         ConcurrentBag<IMapRecord> MapRecords { get; }
     }

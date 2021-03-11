@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace PSS.Mapping
 {
-    public interface IShapeFileReader : IMutliThreaded
+    public interface IShapeFileReader : IMultiThreaded
     {
         int RecordsRead { get; }
         ConcurrentQueue<IMapData> Records { get; set; }

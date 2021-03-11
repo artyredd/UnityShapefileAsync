@@ -48,14 +48,14 @@ namespace PSS.Mapping
 
         public string Serialize()
         {
-            return new SerializedMapRecord()
+            return JsonUtility.ToJson(new SerializedMapRecord()
             {
                 RecordNumber = RecordNumber,
                 points = points.ToArray(),
                 PrimaryID = PrimaryID,
                 SecondaryID = SecondaryID,
                 Name = Name
-            }.ToJSON();
+            });
         }
 
         [System.Serializable]

@@ -49,7 +49,7 @@ namespace PSS.Mapping
 
         private ConcurrentBag<string> SerializedRecords { get; set; } = new ConcurrentBag<string>();
 
-        private Consumer<IMapRecord,string,ConcurrentBag<IMapRecord>, ConcurrentBag<string>> Consumer { get; set; } = new Consumer<IMapRecord, string, ConcurrentBag<IMapRecord>, ConcurrentBag<string>>();
+        private Consumer<IMapRecord, string, ConcurrentBag<IMapRecord>, ConcurrentBag<string>> Consumer { get; set; } = new Consumer<IMapRecord, string, ConcurrentBag<IMapRecord>, ConcurrentBag<string>>();
 
         private ReadLineProducer<ConcurrentBag<string>> Producer { get; set; }
 
@@ -70,11 +70,11 @@ namespace PSS.Mapping
             Stopwatch watch = Stopwatch.StartNew();
 
             // keep track of the reader task
-            _Threads.Add(StartProducer(maxThreads));
+            _Workers.Add(StartProducer(maxThreads));
 
             try
             {
-                Task.WaitAll(Threads.ToArray(),TokenSource.Token);
+                Task.WaitAll(Workers.ToArray(), TokenSource.Token);
                 UpdateStatus(TaskStatus.RanToCompletion);
             }
             catch (AggregateException e)
@@ -91,7 +91,8 @@ namespace PSS.Mapping
                     UpdateStatus(TaskStatus.Canceled);
                 }
             }
-            finally {
+            finally
+            {
                 Cancel();
             }
 
@@ -106,8 +107,9 @@ namespace PSS.Mapping
         private Task StartProducer(int maxThreads)
         {
             //BEgin reading from the file
-            Task ReaderTask = Task.Run(() => {
-                
+            Task ReaderTask = Task.Run(() =>
+            {
+
                 // create a producer
                 Producer = new ReadLineProducer<ConcurrentBag<string>>(Path);
 
@@ -115,7 +117,7 @@ namespace PSS.Mapping
                 Producer.Output = SerializedRecords;
 
                 // keep track of the deserializer task
-                _Threads.Add(StartConsumer(maxThreads));
+                _Workers.Add(StartConsumer(maxThreads));
 
                 // notify self and others that we are now reading lines
                 UpdateStatus(TaskStatus.Running);
@@ -124,12 +126,12 @@ namespace PSS.Mapping
                 Producer.StartWorker();
 
                 // after we're done reading lines tell the consumer that its okay to end its threads when its done consuming
-                Consumer.WaitForItems = false;
+                Consumer.KeepAlive = false;
             });
             return ReaderTask;
         }
 
-        private Task StartConsumer(int maxThreads) 
+        private Task StartConsumer(int maxThreads)
         {
             Task deserializerTask = Task.Run(() =>
             {
@@ -142,11 +144,8 @@ namespace PSS.Mapping
                 // tell the consumer what to do with the items it consumes
                 Consumer.Operation = ConsumeLinesOperation;
 
-                // tell the consumer to wait for the producer to start before creating new threads that will just hang without items to consume
-                Consumer.MonitoredITasks.Add(Producer);
-
                 // tell the consumer to wait for items to consume and not exit its threads until told no more items are going to be sent
-                Consumer.WaitForItems = true;
+                Consumer.KeepAlive = true;
 
                 // tell the consumer to begin consuming
                 Consumer.BeginConsuming(maxThreads - 1);
@@ -154,7 +153,7 @@ namespace PSS.Mapping
             return deserializerTask;
         }
 
-        private IMapRecord ConsumeLinesOperation(string line) 
+        private IMapRecord ConsumeLinesOperation(string line)
         {
             IMapRecord deserializedRecord = MapRecordDeserializer.DeserializeMapRecord(line);
             return deserializedRecord;

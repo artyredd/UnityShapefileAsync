@@ -16,8 +16,9 @@ namespace PSS.Mapping
         /// </summary>
         /// <param name="SerializedRecord"></param>
         /// <returns></returns>
-        public static MapRecord DeserializeMapRecord(string SerializedRecord) {
-            MapRecord.SerializedMapRecord tmp = SerializedRecord.FromJSON<MapRecord.SerializedMapRecord>();
+        public static MapRecord DeserializeMapRecord(string SerializedRecord)
+        {
+            MapRecord.SerializedMapRecord tmp = UnityEngine.JsonUtility.FromJson<MapRecord.SerializedMapRecord>(SerializedRecord);
             MapRecord mapRecord = Factory.CreateMapRecord();
             mapRecord.Name = tmp.Name;
             mapRecord.points = tmp.points.ToList();

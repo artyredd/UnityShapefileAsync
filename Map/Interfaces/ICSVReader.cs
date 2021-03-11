@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 namespace PSS.Mapping.CSV
 {
-    public interface ICSVReader : IMutliThreaded
+    public interface ICSVReader : IMultiThreaded
     {
         int LinesRead { get; }
         bool Reading { get; }

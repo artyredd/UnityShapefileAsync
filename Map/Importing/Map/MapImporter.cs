@@ -19,7 +19,7 @@ namespace PSS.Mapping
     /// import the csv file that contains information about the shapefile
     /// 
     /// </summary>
-    public class MapImporter : BaseMultiThreaded, IMutliThreaded
+    public class MapImporter : BaseMultiThreaded, IMultiThreaded
     {
         /// <summary>
         /// Contains the path information for the source and output files
@@ -59,7 +59,7 @@ namespace PSS.Mapping
         /// <summary>
         /// The percent dont this importer is in importing a shapefile and CSV data
         /// </summary>
-        public int PercentDone => MathHelpers.Percentages.PercentageComplete(RecordsImported, TotalRecords);
+        public int PercentDone => RecordsImported * 100 / TotalRecords;
 
         /// <summary>
         /// Whether or not the CSVReader is finished reading its data

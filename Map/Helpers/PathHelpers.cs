@@ -15,7 +15,8 @@ namespace PSS.Mapping
         /// <summary>
         /// Map Helper Methods that deal specifically with p
         /// </summary>
-        public static class Paths {
+        public static class Paths
+        {
 
             /// <summary>
             /// Verifies that the given directory either exists, or was sucessfully created
@@ -39,7 +40,8 @@ namespace PSS.Mapping
                 }
                 catch (Exception e)
                 {
-                    if (e is UnauthorizedAccessException) {
+                    if (e is UnauthorizedAccessException)
+                    {
                         Factory.Log($"Failed to verify working directory -> no access to directory.,{path}");
                     }
                     if (e is ArgumentNullException)
@@ -56,7 +58,7 @@ namespace PSS.Mapping
                     }
                     if (e is NotSupportedException)
                     {
-                        Factory.Log($"Failed to verify working directory -> path contains colon character, Number of colons = ({PSS.Strings.SubStringCount(path, ":")}){path}");
+                        Factory.Log($"Failed to verify working directory -> path contains colon character");
                     }
                     return false;
                 }

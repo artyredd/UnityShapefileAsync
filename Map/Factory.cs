@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 using PSS;
 using UnityEngine;
-using static PSS.Debugging;
 using Assets.PipelineGenerator.Scripts.ESRI.ShapeImporter25D;
 using System.IO;
 using PSS.Mapping.CSV;
@@ -20,20 +19,23 @@ namespace PSS.Mapping
         /// Logs message to console
         /// </summary>
         /// <param name="Message"></param>
-        public static void Log(string Message) {
-            Warn(Message);
+        public static void Log(string Message)
+        {
+            Debug.LogWarning(Message);
         }
 
         /// <summary>
         /// Gets the data path where the executable is going to be
         /// </summary>
         /// <returns></returns>
-        public static string GetDataPath() {
+        public static string GetDataPath()
+        {
             return Application.dataPath;
         }
 
 
-        public static FileInfo CreateFileInfo(string path) {
+        public static FileInfo CreateFileInfo(string path)
+        {
             return new FileInfo(path);
         }
 
@@ -44,7 +46,8 @@ namespace PSS.Mapping
         /// <param name="Title"></param>
         /// <param name="Length"></param>
         /// <returns></returns>
-        public static Mapping.CSV.ColumnHeader CreateHeader(int Index, string Title, int Length) {
+        public static Mapping.CSV.ColumnHeader CreateHeader(int Index, string Title, int Length)
+        {
             return new Mapping.CSV.ColumnHeader(Index, Title, Length);
         }
 
@@ -55,7 +58,8 @@ namespace PSS.Mapping
         /// <param name="Column"></param>
         /// <param name="Value"></param>
         /// <returns></returns>
-        public static Mapping.CSV.Cell CreateCell(int Row, int Column, string Value) {
+        public static Mapping.CSV.Cell CreateCell(int Row, int Column, string Value)
+        {
             return new Mapping.CSV.Cell(Row, Column, Value);
         }
 
@@ -64,31 +68,38 @@ namespace PSS.Mapping
         /// </summary>
         /// <param name="index"></param>
         /// <returns></returns>
-        public static Mapping.CSV.Row CreateRow(int index) {
+        public static Mapping.CSV.Row CreateRow(int index)
+        {
             return new Mapping.CSV.Row(index);
         }
 
-        public static Mapping.CSV.CSVModel CreateCSV() {
+        public static Mapping.CSV.CSVModel CreateCSV()
+        {
             return new Mapping.CSV.CSVModel();
         }
 
-        public static Mapping.CSVReader CreateCSVReader(string Path) {
+        public static Mapping.CSVReader CreateCSVReader(string Path)
+        {
             return new CSVReader(Path);
         }
 
-        public static Mapping.MapPathInfo CreatePathInfo() {
+        public static Mapping.MapPathInfo CreatePathInfo()
+        {
             return new MapPathInfo();
         }
 
-        public static MapDataModel CreateMapDataModel(int recordNumber, IEnumerable<Vector3> points) {
+        public static MapDataModel CreateMapDataModel(int recordNumber, IEnumerable<Vector3> points)
+        {
             return new MapDataModel(recordNumber, points);
         }
 
-        public static ShapeFileReader CreateShapeFileReader(string Path) {
+        public static ShapeFileReader CreateShapeFileReader(string Path)
+        {
             return new ShapeFileReader(Path);
         }
 
-        public static MapRecord CreateMapRecord(IMapData data, string[] row, IRecordPositions positions) {
+        public static MapRecord CreateMapRecord(IMapData data, string[] row, IRecordPositions positions)
+        {
             return new MapRecord(data, row, positions);
         }
         public static MapRecord CreateMapRecord()
@@ -96,15 +107,18 @@ namespace PSS.Mapping
             return new MapRecord();
         }
 
-        public static MeshModel CreateMeshModel() {
+        public static MeshModel CreateMeshModel()
+        {
             return new MeshModel();
         }
 
-        public static MapPiece CreateMapPiece(GameObject gameObject, IMapData data, IMapRecordInfo info) {
+        public static MapPiece CreateMapPiece(GameObject gameObject, IMapData data, IMapRecordInfo info)
+        {
             return new MapPiece(gameObject, data, info);
         }
 
-        public static void LogException(Exception e){
+        public static void LogException(Exception e)
+        {
             Factory.Log($"Error: {e.Message}\n{e.StackTrace}");
         }
 
@@ -113,7 +127,8 @@ namespace PSS.Mapping
         /// </summary>
         /// <param name="e"></param>
         /// <returns></returns>
-        public static void LogInnerExceptions(AggregateException e) {
+        public static void LogInnerExceptions(AggregateException e)
+        {
             foreach (var ex in e.InnerExceptions)
             {
                 LogException(ex);

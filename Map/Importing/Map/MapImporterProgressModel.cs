@@ -14,7 +14,7 @@ namespace PSS.Mapping
         public bool ThreadStarted { get; set; } = false;
         public int RecordsCompleted { get; set; } = 0;
         public int TotalRecords { get; set; } = 0;
-        public int PercentDone => MathHelpers.Percentages.PercentageComplete(RecordsCompleted,TotalRecords);
+        public int PercentDone => RecordsCompleted * 100 / TotalRecords;
         public bool FinishedImporting { get; set; } = false;
     }
 }
