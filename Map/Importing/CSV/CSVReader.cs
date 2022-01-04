@@ -105,13 +105,13 @@ namespace PSS.Mapping
                 // tell the producer that we dont need the first line, its a garbo header
                 Producer.SkipFirstLine = true;
 
-                StartConsumerWorker();
+                //StartConsumerWorker();
 
                 // start producing lines
                 Producer.StartWorker();
 
                 // tell the consumer that its okay to stop its threads when its done consuming
-                Consumer.KeepAlive = false;
+                //Consumer.KeepAlive = false;
             });
         }
 
