@@ -40,7 +40,7 @@ namespace PSS.Mapping
         private int NumberOfColumnsToKeep => ColumnsToKeep.Length;
         private int[] ColumnsToKeep { get; set; }
 
-        private ConcurrentQueue<string> LineQueue { get; set; } = new ConcurrentQueue<string>();
+        public ConcurrentQueue<string> LineQueue { get; set; } = new ConcurrentQueue<string>();
 
         ReadLineProducer<ConcurrentQueue<string>> Producer { get; set; }
 
