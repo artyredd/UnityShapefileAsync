@@ -1,6 +1,41 @@
 
-# UnityShapefileAsync
+# UnityShapefileAsync [DEPRECATED]
 Converts [Shapefiles](https://en.wikipedia.org/wiki/Shapefile), commonly used for representing geographical or demographic bodies in statistical analysis programs, to Unity3d(MonoDevelop C#7.3) Meshes and Vector3's.
+
+### DEPRECATED
+This library relied on implementation details in Unity ~2018's Task Scheduler and as such is no longer reliable for modern .NET Core, Framework or Unity 2019+. This project is deprecated and no features or updates are planned.
+
+I apologize for the inconvenience. In the mean time you can use the following work around to convert your shapefile and .csv's into JSON flat files:
+
+```csharp
+ShapeFileReader reader = new ShapeFileReader("yourShapeFile.shp");
+
+reader.BeginReadingAsync();
+
+while (reader.Status != TaskStatus.RanToCompletion)
+{
+    continue;
+}
+
+CSVReader otherReader = Factory.CreateCSVReader("yourRecordFile.csv");
+
+// the number's 0, 3 and 5 represent the key information(columns in the csv) in the records you want added to the JSON
+// see IMapRecord
+otherReader.ReadCSV(0, 3, 5);
+
+var positions = new RecordPositions(0, 3, 5);
+
+using (var writer = new StreamWriter(File.OpenWrite("outputFile.json")))
+{
+    while (reader.Records.TryDequeue(out IMapData data))
+    {
+        while (otherReader.LineQueue.TryDequeue(out string line))
+        {
+            writer.WriteLine(Factory.CreateMapRecord(data, line.Split(','), positions).Serialize());
+        }
+    }
+}
+```
 
 ### Features
 
